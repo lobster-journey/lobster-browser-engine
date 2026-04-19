@@ -1,6 +1,10 @@
-# 浏览器操作引擎 (Browser Engine Core)
+# Browser Engine Core
 
-> 一个可靠的浏览器自动化操作引擎，为上层 Skill 提供稳定的浏览器操作能力
+> 🦞 由 **龙虾巡游记工作室** (Lobster Journey Studio) 开源
+>
+> 高可靠、高性能、可扩展的浏览器自动化操作引擎
+>
+> 版本：v0.2.0 | 状态：架构设计中
 
 ---
 
@@ -165,18 +169,6 @@ browser-engine-core/
 
 **详细路径**：[flows/jimeng_login.json](./flows/jimeng_login.json)
 
-### 小红书登录流程
-
-**成功率**：待验证
-
-**关键步骤**：
-1. 导航到小红书主页
-2. 点击登录按钮
-3. 选择登录方式
-4. 扫码或输入验证码
-
-**详细路径**：待补充
-
 ---
 
 ## 📝 使用示例
@@ -197,52 +189,6 @@ else:
     print(f"登录失败: {result.error}")
 ```
 
-### 示例2：自定义流程
-
-```python
-from browser_engine import BrowserEngine
-
-engine = BrowserEngine()
-
-# 定义自定义流程
-custom_flow = {
-    "name": "search_google",
-    "steps": [
-        {"action": "navigate", "url": "https://www.google.com"},
-        {"action": "fill", "locator": "css=input[name='q']", "value": "Playwright"},
-        {"action": "click", "locator": "css=input[type='submit']"},
-        {"action": "wait", "time": 2},
-        {"action": "screenshot"}
-    ]
-}
-
-result = engine.execute_custom_flow(custom_flow)
-```
-
-### 示例3：截图发送
-
-```python
-from browser_engine import BrowserEngine
-from infoflow import send_message
-
-engine = BrowserEngine()
-result = engine.execute_flow("jimeng_login")
-
-# 正确的截图发送流程
-if result.screenshots:
-    screenshot_path = result.screenshots[-1]
-    
-    # 步骤1：确认文件存在
-    import os
-    if os.path.exists(screenshot_path):
-        # 步骤2：发送图片
-        send_message(
-            to="chenke16",
-            message="登录成功",
-            image_url=screenshot_path  # 使用本地文件路径
-        )
-```
-
 ---
 
 ## ⚠️ 重要规则
@@ -257,53 +203,6 @@ if result.screenshots:
 **❌ 错误做法**：
 - 直接使用 `browser screenshot`（不会发送给用户）
 - 不保存文件直接发送
-- 使用远程 URL
-
-### 元素定位规则
-
-**推荐优先级**：
-1. Playwright `locator('text=...')` - 最可靠
-2. CSS选择器配合等待
-3. JavaScript DOM搜索（最后选择）
-
-### 操作验证规则
-
-每个关键操作后都要：
-1. 等待2-3秒让页面加载
-2. 截图验证当前状态
-3. 检查预期结果
-
----
-
-## 🐛 故障排查
-
-### 问题1：连接浏览器失败
-
-**错误信息**：`无法连接到 CDP 端点`
-
-**解决方案**：
-1. 确认浏览器已启动并开启远程调试
-2. 检查端口是否正确（默认9222）
-3. 检查防火墙设置
-
-### 问题2：元素定位失败
-
-**错误信息**：`未找到元素`
-
-**解决方案**：
-1. 增加等待时间
-2. 尝试不同的定位策略
-3. 使用 `locator('text=...')` 代替 CSS 选择器
-4. 检查元素是否在 iframe 或 shadow DOM 中
-
-### 问题3：操作超时
-
-**错误信息**：`操作超时`
-
-**解决方案**：
-1. 增加超时时间
-2. 检查网络连接
-3. 验证页面是否正确加载
 
 ---
 
@@ -312,8 +211,6 @@ if result.screenshots:
 | 操作 | 平均耗时 | 成功率 |
 |------|---------|--------|
 | 即梦登录 | 8-12秒 | 100% |
-| 小红书登录 | 待测试 | 待测试 |
-| 截图操作 | 1-2秒 | 100% |
 
 ---
 
@@ -323,57 +220,32 @@ if result.screenshots:
 - ✅ 完成即梦登录流程验证
 - ✅ 沉淀截图发送规则
 - ✅ 创建项目结构
-- ✅ 编写核心文档
-
-### v0.2.0 (计划中)
-- 🔄 完成小红书登录流程
-- 🔄 完善错误重试机制
-- 🔄 添加操作日志记录
-- 🔄 创建单元测试
 
 ---
 
-## 🤝 贡献指南
+## 📄 License
 
-### 添加新的操作流程
+MIT License
 
-1. 在 `flows/` 目录创建流程配置文件
-2. 编写流程说明文档
-3. 测试验证流程可靠性
-4. 提交 Pull Request
+Copyright (c) 2026 🦞 龙虾巡游记工作室 (Lobster Journey Studio)
 
-### 流程配置格式
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-```json
-{
-  "name": "流程名称",
-  "version": "1.0.0",
-  "description": "流程描述",
-  "success_rate": "100%",
-  "steps": [
-    {
-      "action": "操作类型",
-      "params": {},
-      "wait_after": 2
-    }
-  ],
-  "notes": "注意事项"
-}
-```
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
----
-
-## 📧 联系方式
-
-- **开发者**：龙虾智能体
-- **创建时间**：2026-04-19
-- **项目位置**：`~/.openclaw/workspace/browser-engine-core/`
-
----
-
-## 📜 许可证
-
-内部项目，仅供 Lobster Journey Studio 使用。
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ---
 
