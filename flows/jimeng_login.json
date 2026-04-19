@@ -1,0 +1,118 @@
+{
+  "name": "jimeng_login",
+  "version": "1.0.0",
+  "description": "即梦AI抖音登录流程",
+  "success_rate": "100%",
+  "author": "龙虾智能体",
+  "created_at": "2026-04-19",
+  "tags": ["login", "jimeng", "douyin"],
+  
+  "params": {
+    "wait_qr_code": {
+      "type": "number",
+      "default": 30,
+      "description": "等待扫码时间（秒）"
+    }
+  },
+  
+  "steps": [
+    {
+      "step_id": 1,
+      "action": "press",
+      "key": "F5",
+      "wait_after": 3,
+      "description": "刷新页面确保状态干净",
+      "retry": 1
+    },
+    {
+      "step_id": 2,
+      "action": "click",
+      "locator": "css=#SiderMenuLogin > div > div",
+      "wait_after": 2,
+      "description": "点击登录按钮",
+      "retry": 3,
+      "on_failure": "截图并发送错误信息"
+    },
+    {
+      "step_id": 3,
+      "action": "click",
+      "locator": "css=.lv-menu-item.lv-menu-item-size-default.login-menu-item-Yoy61o",
+      "wait_after": 3,
+      "description": "点击抖音登录选项",
+      "retry": 2,
+      "on_failure": "检查登录弹窗是否正确显示"
+    },
+    {
+      "step_id": 4,
+      "action": "wait",
+      "time": 3,
+      "description": "等待二维码弹窗完全加载"
+    },
+    {
+      "step_id": 5,
+      "action": "click",
+      "locator": "text=刷新",
+      "wait_after": 2,
+      "description": "点击刷新二维码按钮",
+      "optional": false,
+      "on_failure": "如果未找到刷新按钮，可能是二维码还未失效"
+    },
+    {
+      "step_id": 6,
+      "action": "screenshot",
+      "description": "截取二维码发送给用户"
+    },
+    {
+      "step_id": 7,
+      "action": "wait",
+      "time": "{{params.wait_qr_code}}",
+      "description": "等待用户扫码登录"
+    },
+    {
+      "step_id": 8,
+      "action": "evaluate",
+      "script": "const loginBtns = Array.from(document.querySelectorAll('*')).filter(el => el.textContent.trim() === '登录'); return loginBtns.length === 0;",
+      "description": "验证登录成功（登录按钮应该消失）",
+      "expect": true
+    }
+  ],
+  
+  "on_success": {
+    "action": "screenshot",
+    "description": "登录成功后的页面截图"
+  },
+  
+  "on_failure": {
+    "action": "screenshot",
+    "description": "失败状态截图用于调试"
+  },
+  
+  "notes": [
+    "✅ 关键发现：Playwright locator('text=刷新') 比 DOM 搜索更可靠",
+    "✅ 二维码弹窗需要等待加载（2-3秒）",
+    "✅ 截图必须保存到本地文件，再用 infoflow_send 发送",
+    "✅ 每个操作后都要验证当前状态",
+    "⚠️ 如果二维码已失效，必须先点击刷新按钮",
+    "⚠️ F5刷新比页面内刷新更可靠"
+  ],
+  
+  "verified_count": 3,
+  "last_verified": "2026-04-19 15:29",
+  "verification_history": [
+    {
+      "time": "2026-04-19 15:03",
+      "success": true,
+      "notes": "首次验证成功"
+    },
+    {
+      "time": "2026-04-19 15:10",
+      "success": true,
+      "notes": "第二次验证成功"
+    },
+    {
+      "time": "2026-04-19 15:29",
+      "success": true,
+      "notes": "第三次验证成功，用户确认登录成功"
+    }
+  ]
+}
