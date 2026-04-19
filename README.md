@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🦞 Browser Engine Core
+# 🦞 Lobster Browser Engine
 
 **高可靠、高性能、可扩展的浏览器自动化操作引擎**
 
@@ -18,7 +18,7 @@
 
 ## 📖 简介
 
-Browser Engine Core 是一个高可靠、高性能、可扩展的浏览器自动化操作引擎，为上层 Skill 提供稳定可靠的浏览器操作能力。
+Lobster Browser Engine 是一个高可靠、高性能、可扩展的浏览器自动化操作引擎，为上层 Skill 提供稳定可靠的浏览器操作能力。
 
 ### ✨ 核心特性
 
@@ -42,8 +42,15 @@ Browser Engine Core 是一个高可靠、高性能、可扩展的浏览器自动
 ### 安装
 
 ```bash
-pip install playwright
-playwright install chromium
+pip install lobster-browser-engine
+```
+
+或从源码安装：
+
+```bash
+git clone https://github.com/lobster-journey/lobster-browser-engine.git
+cd lobster-browser-engine
+pip install -e .
 ```
 
 ### 启动浏览器
@@ -62,7 +69,7 @@ chrome.exe --remote-debugging-port=9222
 ### 基本使用
 
 ```python
-from browser_engine import BrowserEngine
+from lobster_browser_engine import BrowserEngine
 
 # 连接浏览器
 engine = BrowserEngine(cdp_url="http://127.0.0.1:9222")
@@ -130,7 +137,7 @@ print(f"登录结果: {result}")
 ## 📂 项目结构
 
 ```
-browser-engine-core/
+lobster-browser-engine/
 ├── README.md           # 项目文档
 ├── docs/
 │   └── API.md         # API文档
@@ -138,9 +145,11 @@ browser-engine-core/
 │   ├── jimeng_login.json      # 即梦登录流程
 │   └── README.md              # 流程说明
 ├── src/
-│   ├── browser_engine.py      # 核心引擎
-│   ├── flow_executor.py       # 流程执行器
-│   └── element_locator.py     # 元素定位器
+│   └── lobster_browser_engine/
+│       ├── __init__.py        # 包初始化
+│       ├── engine.py          # 核心引擎
+│       ├── flow_executor.py   # 流程执行器
+│       └── element_locator.py # 元素定位器
 └── tests/                     # 单元测试
 ```
 
@@ -160,7 +169,7 @@ browser-engine-core/
 ### 执行预定义流程
 
 ```python
-from browser_engine import BrowserEngine
+from lobster_browser_engine import BrowserEngine
 
 engine = BrowserEngine()
 result = engine.execute_flow("jimeng_login")
