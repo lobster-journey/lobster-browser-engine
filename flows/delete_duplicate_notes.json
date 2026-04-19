@@ -1,0 +1,31 @@
+{
+  "name": "delete_duplicate_notes",
+  "version": "1.0.0",
+  "description": "删除小红书重复笔记",
+  "steps": [
+    {
+      "step_id": 1,
+      "name": "访问小红书主页",
+      "action": "navigate",
+      "params": {
+        "url": "https://www.xiaohongshu.com/user/profile/ai-report"
+      }
+    },
+    {
+      "step_id": 2,
+      "name": "等待页面加载",
+      "action": "wait",
+      "params": {
+        "time": 3
+      }
+    },
+    {
+      "step_id": 3,
+      "name": "查找重复笔记",
+      "action": "evaluate",
+      "params": {
+        "script": "() => { console.log('查找标题为\"2026最火AI趋势！打工人必看🔥\"的笔记'); }"
+      }
+    }
+  ]
+}
