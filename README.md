@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🦞 Lobster Browser Engine
+# Lobster Browser Engine
 
 **由 🦞 龙虾巡游记工作室 开源**
 
