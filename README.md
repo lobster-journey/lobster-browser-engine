@@ -2,6 +2,8 @@
 
 # 🦞 Lobster Browser Engine
 
+**由 🦞 龙虾巡游记工作室 开源**
+
 **高可靠、高性能、可扩展的浏览器自动化操作引擎**
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
