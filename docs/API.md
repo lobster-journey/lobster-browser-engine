@@ -1,21 +1,6 @@
-# 浏览器操作引擎 API 文档
+# Lobster Browser Engine - API文档
 
-> 版本：v0.1.0  
-> 更新时间：2026-04-19
-
----
-
-## 目录
-
-- [核心类](#核心类)
-  - [BrowserEngine](#browserengine)
-  - [FlowExecutor](#flowexecutor)
-  - [ElementLocator](#elementlocator)
-- [操作类型](#操作类型)
-- [元素定位](#元素定位)
-- [流程配置](#流程配置)
-- [返回结果](#返回结果)
-- [错误处理](#错误处理)
+> 本文档为Agent友好格式，包含所有可执行的接口说明
 
 ---
 
@@ -23,851 +8,713 @@
 
 ### BrowserEngine
 
-主引擎类，提供完整的浏览器操作能力。
+主引擎类，管理浏览器连接和操作执行。
 
 #### 初始化
 
 ```python
-from browser_engine import BrowserEngine
+from lobster_browser_engine import BrowserEngine
+from lobster_browser_engine.config import EngineConfig
 
-engine = BrowserEngine(
-    cdp_url="http://127.0.0.1:9222",  # CDP连接地址
-    headless=False,                    # 是否无头模式
-    timeout=30000,                     # 默认超时时间（毫秒）
-    retry_times=3,                     # 失败重试次数
-    screenshot_dir="/tmp/screenshots"  # 截图保存目录
-)
+# 方式1：默认配置
+engine = BrowserEngine()
+
+# 方式2：自定义配置
+config = EngineConfig()
+config.connection.cdp_url = "http://127.0.0.1:9222"
+config.screenshot.enabled = True
+engine = BrowserEngine(config)
 ```
 
-#### 主要方法
+#### 方法
 
-##### execute_flow()
-
-执行预定义的流程。
-
-```python
-result = engine.execute_flow(
-    flow_name="jimeng_login",  # 流程名称
-    params={                    # 可选参数
-        "username": "user@example.com",
-        "password": "password"
-    }
-)
-```
-
-**参数**：
-- `flow_name` (str): 流程名称，对应 `flows/` 目录下的配置文件
-- `params` (dict, 可选): 流程参数，用于动态配置
-
-**返回**：
-- `FlowResult`: 流程执行结果对象
-
-**示例**：
-
-```python
-# 即梦登录
-result = engine.execute_flow("jimeng_login")
-
-# 检查结果
-if result.success:
-    print("登录成功")
-    # 获取最后一张截图
-    screenshot = result.screenshots[-1]
-else:
-    print(f"登录失败: {result.error}")
-```
-
-##### execute_custom_flow()
-
-执行自定义流程。
-
-```python
-custom_flow = {
-    "name": "my_custom_flow",
-    "steps": [
-        {"action": "navigate", "url": "https://example.com"},
-        {"action": "screenshot"}
-    ]
-}
-
-result = engine.execute_custom_flow(custom_flow)
-```
-
-**参数**：
-- `flow` (dict): 流程配置对象
-
-**返回**：
-- `FlowResult`: 流程执行结果对象
-
-##### connect()
+##### `connect() -> None`
 
 连接到浏览器。
 
 ```python
-engine.connect()
+await engine.connect()
 ```
 
-##### disconnect()
+**异常**：
+- `ConnectionException` - 连接失败
+
+---
+
+##### `disconnect() -> None`
 
 断开浏览器连接。
 
 ```python
-engine.disconnect()
+await engine.disconnect()
 ```
 
-##### get_page()
+---
+
+##### `execute_flow(flow_name: str, params: Optional[Dict] = None) -> FlowResult`
+
+执行预定义流程。
+
+**参数**：
+- `flow_name` (str) - 流程名称（不含.json扩展名）
+- `params` (Optional[Dict]) - 流程参数，默认为None
+
+**返回**：
+- `FlowResult` - 流程执行结果
+
+**示例**：
+
+```python
+# 无参数执行
+result = await engine.execute_flow("login_flow")
+
+# 带参数执行
+result = await engine.execute_flow("form_fill", {
+    "username": "user@example.com",
+    "password": "password123"
+})
+
+# 查看结果
+if result.success:
+    print(f"✅ 执行成功，耗时：{result.get_duration_human()}")
+    print(f"步骤数：{result.steps_executed}")
+else:
+    print(f"❌ 执行失败：{result.error}")
+    print(f"失败步骤：{result.error_step}")
+```
+
+---
+
+##### `get_page() -> Page`
 
 获取当前页面对象。
 
+**返回**：
+- `playwright.async_api.Page` - Playwright页面对象
+
+**异常**：
+- `ConnectionException` - 浏览器未连接
+
+**示例**：
+
 ```python
 page = engine.get_page()
+await page.goto("https://example.com")
+await page.screenshot(path="screenshot.png")
 ```
-
-**返回**：
-- `Page`: Playwright Page 对象
 
 ---
 
-### FlowExecutor
+#### 上下文管理器
 
-流程执行器，负责执行具体的操作步骤。
-
-#### 主要方法
-
-##### execute_step()
-
-执行单个操作步骤。
+支持 `async with` 语法。
 
 ```python
-executor = FlowExecutor(page)
-result = executor.execute_step({
-    "action": "click",
+async with BrowserEngine() as engine:
+    page = engine.get_page()
+    await page.goto("https://example.com")
+# 自动断开连接
+```
+
+---
+
+## 操作执行器
+
+### ActionFactory
+
+操作工厂类，创建操作执行器。
+
+#### `create(action_type: str, page: Page, config: EngineConfig) -> BaseActionExecutor`
+
+创建操作执行器。
+
+**参数**：
+- `action_type` (str) - 操作类型
+- `page` (Page) - Playwright页面对象
+- `config` (EngineConfig) - 引擎配置
+
+**返回**：
+- `BaseActionExecutor` - 操作执行器实例
+
+**支持的操作类型**：
+- `navigate` - 导航
+- `click` - 点击
+- `fill` - 填充
+- `wait` - 等待
+- `screenshot` - 截图
+- `evaluate` - 执行JavaScript
+- `press` - 按键
+- `scroll` - 滚动
+- `select` - 选择
+- `upload` - 上传
+- `download` - 下载
+- `hover` - 悬停
+- `drag` - 拖拽
+- `keyboard` - 键盘操作
+- `mouse` - 鼠标操作
+- `dialog` - 对话框
+- `cookie` - Cookie操作
+
+**示例**：
+
+```python
+from lobster_browser_engine.actions import ActionFactory
+
+# 创建点击执行器
+click_executor = ActionFactory.create("click", page, config)
+
+# 执行点击
+result = await click_executor.execute({
     "locator": "text=登录",
-    "wait_after": 2
+    "strategy": "text",
+    "timeout": 5000
+})
+
+if result.success:
+    print(f"✅ 点击成功，耗时：{result.duration}ms")
+else:
+    print(f"❌ 点击失败：{result.error}")
+```
+
+---
+
+## 操作执行器详解
+
+### NavigateAction
+
+导航操作。
+
+**参数**：
+```python
+{
+    "url": "https://example.com",  # 必需
+    "wait_until": "networkidle",   # 可选：load/domcontentloaded/networkidle
+    "timeout": 60000,              # 可选，毫秒
+    "screenshot": true             # 可选，是否截图
+}
+```
+
+**示例**：
+```python
+executor = ActionFactory.create("navigate", page, config)
+result = await executor.execute({
+    "url": "https://example.com",
+    "wait_until": "networkidle"
 })
 ```
 
-**参数**：
-- `step` (dict): 步骤配置
-
-**返回**：
-- `StepResult`: 步骤执行结果
-
 ---
 
-### ElementLocator
+### ClickAction
 
-元素定位器，提供多种定位策略。
+点击操作。
 
-#### 定位方法
-
-##### by_css()
-
-CSS选择器定位。
-
+**参数**：
 ```python
-locator = ElementLocator(page)
-element = locator.by_css("#login-button")
+{
+    "locator": "text=登录",  # 必需
+    "strategy": "text",      # 可选：text/css/xpath，默认auto
+    "timeout": 5000,         # 可选，毫秒
+    "click_count": 1,        # 可选，点击次数
+    "button": "left",        # 可选：left/right/middle
+    "modifiers": []          # 可选：Alt/Control/Meta/Shift
+}
 ```
 
-##### by_text()
-
-文本内容定位。
-
+**示例**：
 ```python
-element = locator.by_text("登录")
+executor = ActionFactory.create("click", page, config)
+result = await executor.execute({
+    "locator": "button.submit",
+    "strategy": "css",
+    "click_count": 1
+})
 ```
 
-##### by_xpath()
+---
 
-XPath定位。
+### FillAction
 
+填充操作。
+
+**参数**：
 ```python
-element = locator.by_xpath("//button[contains(text(), '登录')]")
+{
+    "locator": "input[name='username']",  # 必需
+    "value": "user@example.com",          # 必需
+    "clear_first": true,                  # 可选，是否先清空
+    "timeout": 5000                       # 可选，毫秒
+}
 ```
 
-##### by_role()
-
-ARIA角色定位。
-
+**示例**：
 ```python
-element = locator.by_role("button", name="登录")
+executor = ActionFactory.create("fill", page, config)
+result = await executor.execute({
+    "locator": "input[name='username']",
+    "value": "user@example.com",
+    "clear_first": true
+})
 ```
 
 ---
 
-## 操作类型
+### WaitAction
 
-### navigate
-
-导航到指定URL。
-
-```json
-{
-  "action": "navigate",
-  "url": "https://example.com",
-  "wait_until": "networkidle"
-}
-```
+等待操作。
 
 **参数**：
-- `url` (str): 目标URL
-- `wait_until` (str, 可选): 等待条件，可选值：
-  - `load`: 等待 load 事件
-  - `domcontentloaded`: 等待 DOMContentLoaded 事件
-  - `networkidle`: 等待网络空闲（默认）
+```python
+{
+    # 方式1：等待时间
+    "time": 3,  # 秒
+    
+    # 方式2：等待元素
+    "locator": ".loading",
+    "state": "hidden",  # visible/hidden/attached/detached
+    "timeout": 10000,
+    
+    # 方式3：等待URL
+    "url": "https://example.com/success"
+}
+```
+
+**示例**：
+```python
+# 等待3秒
+await executor.execute({"time": 3})
+
+# 等待元素出现
+await executor.execute({
+    "locator": ".user-info",
+    "state": "visible",
+    "timeout": 10000
+})
+
+# 等待URL变化
+await executor.execute({
+    "url": "https://example.com/dashboard"
+})
+```
 
 ---
 
-### click
+### ScreenshotAction
 
-点击元素。
-
-```json
-{
-  "action": "click",
-  "locator": "text=登录",
-  "timeout": 5000,
-  "wait_after": 2
-}
-```
+截图操作。
 
 **参数**：
-- `locator` (str): 元素定位器
-- `timeout` (int, 可选): 超时时间（毫秒），默认5000
-- `wait_after` (int, 可选): 点击后等待时间（秒）
+```python
+{
+    "path": "/tmp/screenshot.png",  # 可选，默认自动生成
+    "full_page": false,             # 可选，是否全页截图
+    "clip": {                       # 可选，裁剪区域
+        "x": 0,
+        "y": 0,
+        "width": 800,
+        "height": 600
+    }
+}
+```
 
-**定位器格式**：
-- `text=登录`: 文本定位（推荐）
-- `css=#btn`: CSS选择器
-- `xpath=//button`: XPath表达式
-- `role=button`: ARIA角色
+**示例**：
+```python
+executor = ActionFactory.create("screenshot", page, config)
+result = await executor.execute({
+    "path": "/tmp/screenshot.png",
+    "full_page": true
+})
+print(f"截图保存到：{result.data['path']}")
+```
 
 ---
 
-### fill
-
-填充输入框。
-
-```json
-{
-  "action": "fill",
-  "locator": "css=input[name='username']",
-  "value": "user@example.com",
-  "clear_first": true,
-  "wait_after": 1
-}
-```
-
-**参数**：
-- `locator` (str): 元素定位器
-- `value` (str): 要填充的值
-- `clear_first` (bool, 可选): 是否先清空，默认true
-- `wait_after` (int, 可选): 填充后等待时间（秒）
-
----
-
-### wait
-
-等待时间或元素。
-
-#### 等待时间
-
-```json
-{
-  "action": "wait",
-  "time": 3
-}
-```
-
-#### 等待元素出现
-
-```json
-{
-  "action": "wait",
-  "locator": "text=登录",
-  "timeout": 10000
-}
-```
-
-#### 等待URL变化
-
-```json
-{
-  "action": "wait",
-  "url": "https://example.com/dashboard",
-  "timeout": 10000
-}
-```
-
-**参数**：
-- `time` (int): 等待时间（秒）
-- `locator` (str): 等待的元素
-- `url` (str): 等待的URL
-- `timeout` (int, 可选): 超时时间（毫秒）
-
----
-
-### screenshot
-
-截图。
-
-```json
-{
-  "action": "screenshot",
-  "path": "/tmp/screenshot.png",
-  "full_page": false
-}
-```
-
-**参数**：
-- `path` (str, 可选): 保存路径，不指定则自动生成
-- `full_page` (bool, 可选): 是否全页截图，默认false
-
----
-
-### evaluate
+### EvaluateAction
 
 执行JavaScript。
 
-```json
+**参数**：
+```python
 {
-  "action": "evaluate",
-  "script": "document.querySelector('#login-btn').click()",
-  "wait_after": 2
+    "script": "document.querySelector('#btn').click()",  # 必需
+    "arg": null  # 可选，传递给脚本的参数
 }
 ```
+
+**示例**：
+```python
+executor = ActionFactory.create("evaluate", page, config)
+result = await executor.execute({
+    "script": "() => document.title"
+})
+print(f"页面标题：{result.data['result']}")
+```
+
+---
+
+### ScrollAction
+
+滚动操作。
 
 **参数**：
-- `script` (str): JavaScript代码
-- `wait_after` (int, 可选): 执行后等待时间（秒）
+```python
+{
+    "direction": "down",  # up/down/top/bottom
+    "distance": 300,      # 像素
+    "selector": "#content",  # 可选，指定滚动元素
+    "smooth": true
+}
+```
+
+**示例**：
+```python
+# 向下滚动300像素
+await executor.execute({
+    "direction": "down",
+    "distance": 300
+})
+
+# 滚动到页面底部
+await executor.execute({
+    "direction": "bottom"
+})
+```
 
 ---
 
-### press
+### SelectAction
 
-按键操作。
-
-```json
-{
-  "action": "press",
-  "key": "Enter",
-  "wait_after": 1
-}
-```
+选择操作。
 
 **参数**：
-- `key` (str): 按键名称，如 `Enter`, `Escape`, `F5` 等
-- `wait_after` (int, 可选): 按键后等待时间（秒）
+```python
+{
+    "selector": "select#country",  # 必需
+    "value": "china",              # 方式1：按值选择
+    "label": "中国",                # 方式2：按标签选择
+    "index": 0                     # 方式3：按索引选择
+}
+```
+
+**示例**：
+```python
+executor = ActionFactory.create("select", page, config)
+result = await executor.execute({
+    "selector": "select#country",
+    "value": "china"
+})
+```
 
 ---
 
-### refresh
+### UploadAction
 
-刷新页面。
-
-```json
-{
-  "action": "refresh",
-  "wait_until": "networkidle"
-}
-```
+上传操作。
 
 **参数**：
-- `wait_until` (str, 可选): 等待条件，默认 `networkidle`
-
----
-
-## 元素定位
-
-### 定位器格式
-
-定位器使用统一格式：`策略=值`
-
-#### 文本定位（推荐）
-
-```
-text=登录
-text=刷新
-```
-
-**优点**：
-- 最可靠
-- 不受页面结构变化影响
-- 适合包含特定文本的元素
-
-#### CSS选择器
-
-```
-css=#login-button
-css=.btn-primary
-css=div.container > button
-```
-
-**优点**：
-- 精确定位
-- 性能好
-- 适合固定结构的元素
-
-#### XPath
-
-```
-xpath=//button[contains(text(), '登录')]
-xpath=//div[@class='container']//button[1]
-```
-
-**优点**：
-- 灵活强大
-- 适合复杂结构
-
-#### ARIA角色
-
-```
-role=button
-role=link[name='登录']
-```
-
-**优点**：
-- 语义化
-- 可访问性好
-
----
-
-### 定位器优先级
-
-推荐使用顺序：
-
-1. **text=...** - 最可靠，优先使用
-2. **role=...** - 语义化，适合交互元素
-3. **css=...** - 精确定位，适合固定结构
-4. **xpath=...** - 最后选择，灵活性最高
-
----
-
-### 元素等待策略
-
-所有定位操作都会自动等待元素出现，默认超时5秒。
-
-可配置：
-
-```json
+```python
 {
-  "action": "click",
-  "locator": "text=登录",
-  "timeout": 10000,
-  "wait_for": "visible"
+    "selector": "input[type='file']",        # 必需
+    "files": ["/path/to/file1.jpg", ...],   # 必需，文件路径列表
+    "timeout": 30000
 }
 ```
 
-**wait_for 选项**：
-- `visible`: 等待元素可见（默认）
-- `hidden`: 等待元素隐藏
-- `attached`: 等待元素附加到DOM
-- `detached`: 等待元素从DOM分离
+**示例**：
+```python
+executor = ActionFactory.create("upload", page, config)
+result = await executor.execute({
+    "selector": "input[type='file']",
+    "files": ["/tmp/image.jpg"]
+})
+```
 
 ---
 
-## 流程配置
+### CookieAction
 
-### 流程文件格式
+Cookie操作。
 
-流程配置使用JSON格式，存放在 `flows/` 目录。
+**参数**：
+```python
+{
+    "action": "get/set/delete/clear",  # 必需
+    "name": "sessionid",               # get/delete时使用
+    "value": "xxx",                    # set时使用
+    "domain": ".example.com",          # 可选
+    "cookies": [...]                   # set批量时使用
+}
+```
 
-#### 完整示例
+**示例**：
+```python
+# 获取所有Cookie
+result = await executor.execute({"action": "get"})
+
+# 设置Cookie
+await executor.execute({
+    "action": "set",
+    "name": "token",
+    "value": "abc123",
+    "domain": ".example.com"
+})
+
+# 清除所有Cookie
+await executor.execute({"action": "clear"})
+```
+
+---
+
+## 流程管理
+
+### FlowManager
+
+流程管理器，负责流程的CRUD操作。
+
+```python
+from lobster_browser_engine.flows import FlowManager
+
+manager = FlowManager()
+
+# 创建流程
+manager.create({
+    "name": "login_flow",
+    "version": "1.0.0",
+    "steps": [...]
+})
+
+# 读取流程
+flow = manager.read("login_flow")
+
+# 更新流程
+manager.update("login_flow", {"version": "1.1.0"})
+
+# 删除流程
+manager.delete("login_flow")
+
+# 列出所有流程
+flows = manager.list_flows()
+```
+
+---
+
+### 流程配置格式
 
 ```json
 {
-  "name": "jimeng_login",
+  "name": "flow_name",
   "version": "1.0.0",
-  "description": "即梦AI登录流程",
-  "success_rate": "100%",
-  "author": "龙虾智能体",
-  "created_at": "2026-04-19",
-  "tags": ["login", "jimeng", "douyin"],
-  
+  "description": "流程描述",
   "params": {
-    "wait_qr_code": {
-      "type": "number",
-      "default": 30,
-      "description": "等待扫码时间（秒）"
+    "username": {
+      "type": "string",
+      "required": true,
+      "default": ""
     }
   },
-  
   "steps": [
     {
-      "action": "press",
-      "key": "F5",
-      "wait_after": 3,
-      "description": "刷新页面"
-    },
-    {
-      "action": "click",
-      "locator": "css=#SiderMenuLogin > div > div",
-      "wait_after": 2,
-      "description": "点击登录按钮",
-      "retry": 3
-    },
-    {
-      "action": "click",
-      "locator": "css=.lv-menu-item.lv-menu-item-size-default.login-menu-item-Yoy61o",
-      "wait_after": 2,
-      "description": "点击抖音登录"
-    },
-    {
-      "action": "wait",
-      "time": 3,
-      "description": "等待二维码弹窗加载"
-    },
-    {
-      "action": "click",
-      "locator": "text=刷新",
-      "wait_after": 2,
-      "description": "点击刷新二维码",
-      "optional": false
-    },
-    {
-      "action": "screenshot",
-      "description": "截取二维码"
-    },
-    {
-      "action": "wait",
-      "time": "{{params.wait_qr_code}}",
-      "description": "等待用户扫码"
-    },
-    {
-      "action": "evaluate",
-      "script": "const loginBtns = Array.from(document.querySelectorAll('*')).filter(el => el.textContent.trim() === '登录'); return loginBtns.length === 0;",
-      "description": "验证登录成功（登录按钮消失）"
+      "step_id": 1,
+      "name": "步骤名称",
+      "description": "步骤描述",
+      "action": "navigate",
+      "params": {
+        "url": "https://example.com"
+      },
+      "optional": false,
+      "wait_after": 1.0,
+      "condition": {
+        "type": "element_exists",
+        "selector": ".element"
+      }
     }
   ],
-  
-  "on_success": {
-    "action": "screenshot",
-    "description": "登录成功截图"
-  },
-  
-  "on_failure": {
-    "action": "screenshot",
-    "description": "失败状态截图"
-  },
-  
-  "notes": [
-    "二维码弹窗需要等待加载（2-3秒）",
-    "Playwright locator API 比 DOM 搜索更可靠",
-    "截图需保存到本地文件再发送"
-  ]
+  "before_hooks": [],
+  "after_hooks": []
 }
 ```
 
-### 流程字段说明
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| name | string | ✅ | 流程名称，唯一标识 |
-| version | string | ✅ | 流程版本 |
-| description | string | ✅ | 流程描述 |
-| success_rate | string | ❌ | 成功率 |
-| author | string | ❌ | 作者 |
-| created_at | string | ❌ | 创建时间 |
-| tags | array | ❌ | 标签列表 |
-| params | object | ❌ | 流程参数定义 |
-| steps | array | ✅ | 操作步骤列表 |
-| on_success | object | ❌ | 成功后的操作 |
-| on_failure | object | ❌ | 失败后的操作 |
-| notes | array | ❌ | 注意事项 |
-
 ---
 
-### 步骤配置说明
+## 结果对象
 
-每个步骤支持以下字段：
+### ActionResult
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| action | string | ✅ | 操作类型 |
-| * | * | - | 操作参数（根据action类型） |
-| wait_after | number | ❌ | 操作后等待时间（秒） |
-| description | string | ❌ | 步骤描述 |
-| retry | number | ❌ | 失败重试次数 |
-| optional | boolean | ❌ | 是否可选步骤，默认false |
+操作执行结果。
+
+```python
+result = await executor.execute(params)
+
+# 属性
+result.success       # bool - 是否成功
+result.action_type   # ActionType - 操作类型
+result.data          # Optional[Any] - 返回数据
+result.screenshot    # Optional[str] - 截图路径
+result.error         # Optional[str] - 错误信息
+result.duration      # float - 执行时长（毫秒）
+result.retry_count   # int - 重试次数
+
+# 方法
+result.is_successful()          # 判断是否成功
+result.has_screenshot()         # 判断是否有截图
+result.get_duration_seconds()   # 获取执行时长（秒）
+result.get_duration_human()     # 获取人类可读的执行时长
+```
 
 ---
-
-## 返回结果
 
 ### FlowResult
 
-流程执行结果对象。
+流程执行结果。
 
 ```python
-class FlowResult:
-    success: bool              # 是否成功
-    flow_name: str             # 流程名称
-    steps_executed: int        # 执行的步骤数
-    steps_total: int           # 总步骤数
-    screenshots: List[str]     # 截图文件路径列表
-    data: dict                 # 返回数据
-    error: str                 # 错误信息（失败时）
-    duration: float            # 执行时长（秒）
-    timestamp: str             # 时间戳
-```
+result = await engine.execute_flow("login_flow")
 
-#### 使用示例
+# 属性
+result.success           # bool - 是否成功
+result.flow_name         # str - 流程名称
+result.status            # FlowStatus - 流程状态
+result.steps_total       # int - 总步骤数
+result.steps_executed    # int - 执行步骤数
+result.steps_success     # int - 成功步骤数
+result.steps_failed      # int - 失败步骤数
+result.error             # Optional[str] - 错误信息
+result.error_step        # Optional[int] - 失败步骤ID
+result.duration          # float - 执行时长（毫秒）
+result.step_results      # List[StepResult] - 步骤结果列表
 
-```python
-result = engine.execute_flow("jimeng_login")
-
-print(f"成功: {result.success}")
-print(f"执行步骤: {result.steps_executed}/{result.steps_total}")
-print(f"截图数量: {len(result.screenshots)}")
-print(f"耗时: {result.duration}秒")
-
-if result.success:
-    # 获取最后一张截图
-    last_screenshot = result.screenshots[-1]
-    
-    # 发送截图给用户
-    send_message(to="user", image_url=last_screenshot)
-else:
-    print(f"错误: {result.error}")
+# 方法
+result.is_successful()          # 判断是否成功
+result.get_duration_human()     # 获取人类可读的执行时长
+result.get_success_rate()       # 获取成功率
+result.get_failed_steps()       # 获取失败的步骤
+result.get_summary()            # 获取摘要信息
+result.to_json()                # 转换为JSON字符串
+result.save_to_file(path)       # 保存到文件
 ```
 
 ---
 
-### StepResult
+## 配置
 
-单个步骤执行结果。
+### EngineConfig
+
+主配置类。
 
 ```python
-class StepResult:
-    success: bool              # 是否成功
-    action: str                # 操作类型
-    data: any                  # 返回数据
-    screenshot: str            # 截图路径（如果有）
-    error: str                 # 错误信息
-    duration: float            # 执行时长（秒）
+from lobster_browser_engine.config import EngineConfig
+
+config = EngineConfig()
+
+# 连接配置
+config.connection.cdp_url = "http://127.0.0.1:9222"
+config.connection.headless = False
+config.connection.user_data_dir = "/tmp/browser_profile"
+
+# 超时配置
+config.timeout.default_timeout = 30000
+config.timeout.navigation_timeout = 60000
+
+# 重试配置
+config.retry.enabled = True
+config.retry.default_retry_times = 3
+
+# 截图配置
+config.screenshot.enabled = True
+config.screenshot.auto_screenshot_on_error = True
+
+# 日志配置
+config.log.enabled = True
+config.log.level = LogLevel.DEBUG
+
+# 性能配置
+config.performance.slow_mo = 0
+config.performance.default_wait_after = 1.0
 ```
 
 ---
 
-## 错误处理
+## 异常
 
-### 异常类型
+### 异常层次
 
-#### BrowserEngineException
-
-基础异常类。
-
-```python
-from browser_engine.exceptions import BrowserEngineException
-
-try:
-    result = engine.execute_flow("jimeng_login")
-except BrowserEngineException as e:
-    print(f"引擎错误: {e}")
+```
+BrowserEngineException (基类)
+├── ConnectionException
+├── ActionException
+│   ├── ActionNotSupportedException
+│   ├── ActionFailedException
+│   └── ...
+├── FlowException
+│   ├── FlowNotFoundException
+│   ├── FlowExecutionException
+│   └── FlowValidationException
+└── ...
 ```
 
-#### ConnectionException
-
-连接异常。
+### 异常处理
 
 ```python
-from browser_engine.exceptions import ConnectionException
+from lobster_browser_engine.exceptions import (
+    BrowserEngineException,
+    ConnectionException,
+    FlowNotFoundException
+)
 
 try:
-    engine.connect()
+    result = await engine.execute_flow("login_flow")
 except ConnectionException as e:
-    print(f"连接失败: {e}")
-```
-
-#### ElementNotFoundException
-
-元素未找到异常。
-
-```python
-from browser_engine.exceptions import ElementNotFoundException
-
-try:
-    element = locator.by_text("登录")
-except ElementNotFoundException as e:
-    print(f"元素未找到: {e}")
-```
-
-#### TimeoutException
-
-超时异常。
-
-```python
-from browser_engine.exceptions import TimeoutException
-
-try:
-    element = locator.by_text("登录", timeout=5000)
-except TimeoutException as e:
-    print(f"超时: {e}")
+    print(f"连接错误：{str(e)}")
+except FlowNotFoundException as e:
+    print(f"流程未找到：{str(e)}")
+except BrowserEngineException as e:
+    print(f"引擎错误：{str(e)}")
 ```
 
 ---
 
-### 错误处理最佳实践
+## 完整示例
 
-#### 1. 使用重试机制
-
-```python
-result = engine.execute_flow(
-    "jimeng_login",
-    retry_times=3
-)
-```
-
-#### 2. 检查返回结果
+### 示例：自动登录流程
 
 ```python
-result = engine.execute_flow("jimeng_login")
+from lobster_browser_engine import BrowserEngine
+from lobster_browser_engine.config import EngineConfig
+import asyncio
 
-if not result.success:
-    # 查看错误信息
-    print(f"错误: {result.error}")
+async def auto_login():
+    # 配置
+    config = EngineConfig()
+    config.connection.user_data_dir = "/tmp/login_profile"
+    config.screenshot.enabled = True
     
-    # 查看失败截图
-    if result.screenshots:
-        last_screenshot = result.screenshots[-1]
-```
+    # 创建引擎
+    async with BrowserEngine(config) as engine:
+        page = engine.get_page()
+        
+        # 1. 导航
+        await page.goto("https://example.com/login")
+        
+        # 2. 填充用户名
+        await page.fill("input[name='username']", "user@example.com")
+        
+        # 3. 填充密码
+        await page.fill("input[name='password']", "password123")
+        
+        # 4. 点击登录
+        await page.click("button[type='submit']")
+        
+        # 5. 等待登录成功
+        await page.wait_for_selector(".user-dashboard", timeout=10000)
+        
+        # 6. 截图
+        await page.screenshot(path="/tmp/login_success.png")
+        
+        print("✅ 登录成功！")
 
-#### 3. 自定义错误处理
-
-```python
-try:
-    result = engine.execute_flow("jimeng_login")
-    
-    if not result.success:
-        # 通知用户
-        send_message(
-            to="admin",
-            message=f"登录失败: {result.error}",
-            image_url=result.screenshots[-1]
-        )
-except Exception as e:
-    # 记录日志
-    log_error(f"流程执行异常: {e}")
-```
-
----
-
-## 高级功能
-
-### 条件执行
-
-根据条件执行不同步骤。
-
-```json
-{
-  "action": "click",
-  "locator": "text=登录",
-  "condition": {
-    "type": "element_exists",
-    "locator": "text=登录"
-  }
-}
-```
-
-### 循环执行
-
-重复执行步骤。
-
-```json
-{
-  "action": "click",
-  "locator": "text=加载更多",
-  "loop": {
-    "max_times": 10,
-    "until": {
-      "type": "element_not_exists",
-      "locator": "text=加载更多"
-    }
-  }
-}
-```
-
-### 并行执行
-
-并行执行多个步骤。
-
-```json
-{
-  "action": "parallel",
-  "steps": [
-    {"action": "screenshot"},
-    {"action": "evaluate", "script": "..."}
-  ]
-}
+asyncio.run(auto_login())
 ```
 
 ---
 
-## 性能优化
-
-### 1. 元素等待优化
-
-```json
-{
-  "action": "click",
-  "locator": "text=登录",
-  "timeout": 5000,
-  "wait_for": "visible"
-}
-```
-
-### 2. 减少不必要的等待
-
-只等待必要的时间：
-
-```json
-{
-  "action": "wait",
-  "time": 2  # 而不是5或10秒
-}
-```
-
-### 3. 使用高效的定位器
-
-优先级：`text` > `role` > `css` > `xpath`
-
-### 4. 批量操作
-
-合并多个操作减少页面刷新。
-
----
-
-## 调试技巧
-
-### 1. 启用详细日志
-
-```python
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-```
-
-### 2. 保留截图
-
-```python
-engine = BrowserEngine(
-    screenshot_dir="/tmp/debug_screenshots",
-    keep_all_screenshots=True
-)
-```
-
-### 3. 单步执行
-
-```python
-executor = FlowExecutor(page)
-
-for step in flow['steps']:
-    result = executor.execute_step(step)
-    print(f"步骤: {step['action']}, 结果: {result.success}")
-    input("按回车继续...")
-```
-
----
-
-**🦞 文档持续更新中...**
+**API文档持续更新中...**
