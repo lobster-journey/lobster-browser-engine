@@ -32,6 +32,16 @@ class ActionFactory:
         ActionType.SCREENSHOT: ScreenshotAction,
         ActionType.EVALUATE: EvaluateAction,
         ActionType.PRESS: PressAction,
+        ActionType.SCROLL: ScrollAction,
+        ActionType.SELECT: SelectAction,
+        ActionType.UPLOAD: UploadAction,
+        ActionType.DIALOG: DialogAction,
+        ActionType.COOKIE: CookieAction,
+        ActionType.DOWNLOAD: DownloadAction,
+        ActionType.HOVER: HoverAction,
+        ActionType.DRAG: DragAction,
+        ActionType.KEYBOARD: KeyboardAction,
+        ActionType.MOUSE: MouseAction,
     }
     
     @classmethod

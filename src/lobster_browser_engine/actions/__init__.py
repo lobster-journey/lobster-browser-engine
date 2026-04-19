@@ -13,6 +13,16 @@ from .wait import WaitAction
 from .screenshot import ScreenshotAction
 from .evaluate import EvaluateAction
 from .press import PressAction
+from .scroll import ScrollAction
+from .select import SelectAction
+from .upload import UploadAction
+from .dialog import DialogAction
+from .cookie import CookieAction
+from .download import DownloadAction
+from .hover import HoverAction
+from .drag import DragAction
+from .keyboard import KeyboardAction
+from .mouse import MouseAction
 from .factory import ActionFactory
 
 __all__ = [
@@ -24,5 +34,15 @@ __all__ = [
     "ScreenshotAction",
     "EvaluateAction",
     "PressAction",
+    "ScrollAction",
+    "SelectAction",
+    "UploadAction",
+    "DialogAction",
+    "CookieAction",
+    "DownloadAction",
+    "HoverAction",
+    "DragAction",
+    "KeyboardAction",
+    "MouseAction",
     "ActionFactory",
 ]
